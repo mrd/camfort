@@ -76,7 +76,6 @@ library
                         Camfort.Reprint
 
   build-depends:        base >= 4.6 && < 5,
-<<<<<<< 465bce6874319a70dabf45151e460d2c1b5e1c65
                         ghc-prim >= 0.3.1.0 && < 0.6,
                         containers >= 0.5.0.0 && < 0.6,
                         uniplate >= 1.6.10 && < 1.7,
@@ -99,31 +98,6 @@ library
                         lattices == 1.5.*,
                         sbv >= 7.0 && < 8,
                         partial-order >= 0.1.2.1 && < 0.1.3
-=======
-                        ghc-prim >= 0.3.1.0,
-                        containers >= 0.5.0.0,
-                        uniplate >= 1.6.10,
-                        syz >= 0.2,
-                        syb >= 0.4,
-                        matrix >=0.2.2,
-                        hmatrix >= 0.17.0.1,
-                        mtl >= 2.1,
-                        text >= 0.11.2.3,
-                        array >= 0.4,
-                        directory >= 1.2,
-                        transformers >= 0.4,
-                        vector >= 0.1,
-                        GenericPretty >= 1.2,
-                        fortran-src == 0.1.0.7,
-                        filepath,
-                        bytestring >= 0.10,
-                        fgl >= 5.5,
-                        binary >= 0.8.3.0,
-                        lattices >= 1.5,
-                        sbv >= 5.14,
-                        partial-order >= 0.1.2,
-                        z3 >= 4.1.0
->>>>>>> Add dependencies for Z3 stuff
   default-language: Haskell2010
 
 test-suite spec
@@ -147,7 +121,6 @@ test-suite spec
                         Camfort.Transformation.CommonSpec
                         Camfort.Transformation.EquivalenceElimSpec
   build-depends:        base >= 4.6 && < 5,
-<<<<<<< 465bce6874319a70dabf45151e460d2c1b5e1c65
                         containers >= 0.5.0.0 && < 0.6,
                         filepath >= 1.4 && < 1.5,
                         directory >= 1.2 && < 2,
@@ -164,24 +137,5 @@ test-suite spec
                         lattices == 1.5.*,
                         sbv >= 7.0 && < 8,
                         partial-order >= 0.1.2.1 && < 0.1.3,
-=======
-                        containers >= 0.5,
-                        filepath >= 1.4,
-                        directory >= 1.2,
-                        hspec >= 2.2,
-                        QuickCheck >= 2.8,
-                        fortran-src == 0.1.0.7,
-                        uniplate >= 1.6.10,
-                        mtl >= 2.1,
-                        bytestring >= 0.10,
-                        array >= 0.4,
-                        hmatrix >= 0.15,
-                        text >= 0.11.2.3,
-                        binary >= 0.8.3.0,
-                        lattices >= 1.5,
-                        sbv >= 5.14,
-                        partial-order >= 0.1.2,
-                        z3 >= 4.1.0,
->>>>>>> Add dependencies for Z3 stuff
                         camfort
   default-language: Haskell2010
