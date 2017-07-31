@@ -48,7 +48,6 @@ import Camfort.Reprint (subtext)
 import Camfort.Specification.Units.Environment
 import Camfort.Specification.Units.Monad
 import Camfort.Specification.Units.InferenceBackend
-import qualified Camfort.Specification.Units.InferenceBackendZ3 as Z
 import Camfort.Specification.Units.InferenceFrontend
 import Camfort.Specification.Units.Synthesis (runSynthesis)
 
