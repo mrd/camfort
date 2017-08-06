@@ -52,7 +52,7 @@ import Camfort.Specification.Units.Monad
 import Camfort.Specification.Units.InferenceBackend
 import Camfort.Specification.Units.Parser (unitParser)
 import qualified Camfort.Specification.Units.Parser.Types as P
-import Camfort.Specification.Units.InferenceBackendSBV (inferVariablesSBV)
+import Camfort.Specification.Units.InferenceBackendSBV (inferVariablesSBV, genUnitAssignmentsSBV)
 
 import qualified Debug.Trace as D
 import qualified Numeric.LinearAlgebra as H -- for debugging
@@ -891,6 +891,9 @@ debugLogging = whenDebug $ do
     tell "\n--------------------------------------------------\nGenUnitAssignments:\n"
     let unitAssignments = genUnitAssignments cons
     tell . unlines $ map (\ (u1s, u2) -> "  ***UnitAssignment: " ++ show u1s ++ " === " ++ show (flattenUnits u2) ++ "\n") unitAssignments
+    tell "\n--------------------------------------------------\nGenUnitAssignmentsSBV:\n"
+    let unitAssignments = genUnitAssignmentsSBV cons
+    tell . unlines $ map (\ (u1s, u2) -> "  ***UnitAssignmentSBV: " ++ show u1s ++ " === " ++ show (flattenUnits u2) ++ "\n") unitAssignments
     tell "\n--------------------------------------------------\n"
 
 --------------------------------------------------
