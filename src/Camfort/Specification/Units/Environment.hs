@@ -28,6 +28,7 @@ module Camfort.Specification.Units.Environment
   , VV, PP
     -- * Helpers
   , conParamEq
+  , unitParamEq
   , doubleToRationalSubset
   , mkUnitAnnotation
   , pprintConstr
