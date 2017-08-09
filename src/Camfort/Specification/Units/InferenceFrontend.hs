@@ -483,10 +483,6 @@ substInstance isDummy callStack output (name, callId) = do
 
   return output'
 
-foldUnits units
-  | null units = UnitlessVar
-  | otherwise  = foldl1 UnitMul units
-
 -- | Generate constraints from a NameParamMap entry.
 nameParamConstraints :: F.Name -> UnitSolver Constraints
 nameParamConstraints fname = do
