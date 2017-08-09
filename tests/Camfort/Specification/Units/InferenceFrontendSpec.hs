@@ -17,6 +17,7 @@ import qualified Language.Fortran.Analysis as FA
 import Camfort.Analysis.Annotations (UA, unitAnnotation)
 import Camfort.Specification.Units (chooseImplicitNames)
 import Camfort.Specification.Units.Environment
+import Camfort.Specification.Units.BackendTypes (constraintToDim, dimParamEq, Dim, dimFromList)
 import Camfort.Specification.Units.InferenceFrontend
   ( initInference
   , runInconsistentConstraints
@@ -31,14 +32,14 @@ spec = do
   describe "Unit Inference Frontend" $ do
     describe "Literal Mode" $ do
       it "litTest1 Mixed" $
-        fromJust (head (rights [fst (runUnits LitMixed litTest1 runInconsistentConstraints)])) `shouldSatisfy`
-          any (conParamEq (ConEq (UnitVar ("k", "k")) (UnitMul (UnitVar ("j", "j")) (UnitVar ("j", "j")))))
+        fromJust (head (rights [fst (runUnitsDim LitMixed litTest1 runInconsistentConstraints_Dim)])) `shouldSatisfy`
+          any (dimParamEq (dimFromList [(UnitVar ("k", "k"), -1), (UnitVar ("j", "j"), 2)]))
       it "litTest1 Poly" $
-        fromJust (head (rights [fst (runUnits LitPoly litTest1 runInconsistentConstraints)])) `shouldSatisfy`
-          any (conParamEq (ConEq (UnitVar ("k", "k")) (UnitMul (UnitVar ("j", "j")) (UnitVar ("j", "j")))))
+        fromJust (head (rights [fst (runUnits LitPoly litTest1 runInconsistentConstraints_Dim)])) `shouldSatisfy`
+          any (dimParamEq (dimFromList [(UnitVar ("k", "k"), -1), (UnitVar ("j", "j"), 2)]))
       it "litTest1 Unitless" $
-        fromJust (head (rights [fst (runUnits LitUnitless litTest1 runInconsistentConstraints)])) `shouldSatisfy`
-          any (conParamEq (ConEq UnitlessLit (UnitVar ("j", "j"))))
+        fromJust (head (rights [fst (runUnits LitUnitless litTest1 runInconsistentConstraints_Dim)])) `shouldSatisfy`
+          any (dimParamEq (dimFromList [(UnitVar ("j", "j"), 1)]))
       it "Polymorphic non-zero literal is not OK" $
         head (rights [fst (runUnits LitMixed inconsist1 runInconsistentConstraints)]) `shouldSatisfy` isJust
 
@@ -53,8 +54,8 @@ spec = do
 
     describe "Recursive functions" $
       it "Recursive Multiplication is not OK" $
-        fromJust (head (rights [fst (runUnits LitMixed recursive2 runInconsistentConstraints)])) `shouldSatisfy`
-          any (conParamEq (ConEq (UnitParamPosAbs (("recur", "recur"), 0)) (UnitParamPosAbs (("recur", "recur"), 2))))
+        fromJust (head (rights [fst (runUnits LitMixed recursive2 runInconsistentConstraints_Dim)])) `shouldSatisfy`
+          any (dimParamEq (dimFromList [(UnitParamPosAbs (("recur", "recur"), 0), -1), (UnitParamPosAbs (("recur", "recur"), 2), 1)]))
 
     describe "Explicitly annotated parametric polymorphic unit variables" $ do
       it "inside-outside" $
@@ -83,6 +84,12 @@ runUnits litMode pf m = (r, usConstraints state)
     uOpts = unitOpts0 { uoDebug = False, uoLiterals = litMode }
     (r, state, _) = runUnitSolver uOpts pf' $ initInference >> m
 
+runUnitsDim litMode pf m = (r, map constraintToDim (usConstraints state))
+  where
+    pf' = FA.initAnalysis . fmap (mkUnitAnnotation . const unitAnnotation) $ pf
+    uOpts = unitOpts0 { uoDebug = False, uoLiterals = litMode }
+    (r, state, _) = runUnitSolver uOpts pf' $ initInference >> m
+
 runUnitInference litMode pf = case r of
   Right vars -> ([ (FA.varName e, u) | e <- declVariables pf'
                                      , u <- maybeToList ((FA.varName e, FA.srcName e) `lookup` vars) ]
@@ -92,6 +99,9 @@ runUnitInference litMode pf = case r of
     pf' = FA.initAnalysis . fmap (mkUnitAnnotation . const unitAnnotation) $ pf
     uOpts = unitOpts0 { uoDebug = False, uoLiterals = litMode }
     (r, state, _) = runUnitSolver uOpts pf' $ initInference >> fmap chooseImplicitNames runInferVariables
+
+-- 3 levels of functor...
+runInconsistentConstraints_Dim = fmap (fmap (fmap constraintToDim)) runInconsistentConstraints
 
 declVariables :: F.ProgramFile UA -> [F.Expression UA]
 declVariables pf = flip mapMaybe (universeBi pf) $ \ d -> case d of
