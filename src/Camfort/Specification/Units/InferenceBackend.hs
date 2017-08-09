@@ -92,7 +92,9 @@ inferVariables cons = unitVarAssignments
 
 -- | Raw units-assignment pairs.
 genUnitAssignments :: [Constraint] -> [([UnitInfo], UnitInfo)]
+genUnitAssignments [] = []
 genUnitAssignments cons
+  | null cols       = []
   | null inconsists = unitAssignments
   | otherwise       = []
   where
@@ -128,14 +130,18 @@ simplifyUnits = rewrite rw
     rw (UnitMul u1 u2) | u1 == u2                            = Just $ UnitPow u1 2
     rw (UnitPow (UnitPow u1 p1) p2)                          = Just $ UnitPow u1 (p1 * p2)
     rw (UnitMul (UnitPow u1 p1) (UnitPow u2 p2)) | u1 == u2  = Just $ UnitPow u1 (p1 + p2)
+    rw (UnitPow UnitlessLit _)                               = Just UnitlessLit
+    rw (UnitPow UnitlessVar _)                               = Just UnitlessVar
     rw (UnitPow _ p) | p `approxEq` 0                        = Just UnitlessLit
     rw (UnitMul UnitlessLit u)                               = Just u
     rw (UnitMul u UnitlessLit)                               = Just u
+    rw (UnitMul UnitlessVar u)                               = Just u
+    rw (UnitMul u UnitlessVar)                               = Just u
     rw _                                                     = Nothing
 
 flattenUnits :: UnitInfo -> [UnitInfo]
 flattenUnits = map (uncurry UnitPow) . M.toList
-             . M.filterWithKey (\ u _ -> u /= UnitlessLit)
+             . M.filterWithKey (\ u _ -> u /= UnitlessLit && u /= UnitlessVar)
              . M.filter (not . approxEq 0)
              . M.fromListWith (+)
              . map (first simplifyUnits)
@@ -153,7 +159,9 @@ epsilon = 0.001 -- arbitrary
 -- Convert a set of constraints into a matrix of co-efficients, and a
 -- reverse mapping of column numbers to units.
 constraintsToMatrix :: Constraints -> (H.Matrix Double, [Int], A.Array Int UnitInfo)
-constraintsToMatrix cons = (augM, inconsists, A.listArray (0, length colElems - 1) colElems)
+constraintsToMatrix cons
+  | all null lhs = (H.ident 0, [], A.listArray (0, 0) [])
+  | otherwise = (augM, inconsists, A.listArray (0, length colElems - 1) colElems)
   where
     -- convert each constraint into the form (lhs, rhs)
     consPairs       = flattenConstraints cons
@@ -164,11 +172,13 @@ constraintsToMatrix cons = (augM, inconsists, A.listArray (0, length colElems - 
     (lhsM, lhsCols) = flattenedToMatrix lhs
     (rhsM, rhsCols) = flattenedToMatrix rhs
     colElems        = A.elems lhsCols ++ A.elems rhsCols
-    augM            = if rows rhsM == 0 || cols rhsM == 0 then lhsM else fromBlocks [[lhsM, rhsM]]
+    augM            = if rows rhsM == 0 || cols rhsM == 0 then lhsM else if rows lhsM == 0 || cols lhsM == 0 then rhsM else fromBlocks [[lhsM, rhsM]]
     inconsists      = findInconsistentRows lhsM augM
 
 constraintsToMatrices :: Constraints -> (H.Matrix Double, H.Matrix Double, [Int], A.Array Int UnitInfo, A.Array Int UnitInfo)
-constraintsToMatrices cons = (lhsM, rhsM, inconsists, lhsCols, rhsCols)
+constraintsToMatrices cons
+  | all null lhs = (H.ident 0, H.ident 0, [], A.listArray (0, 0) [], A.listArray (0, 0) [])
+  | otherwise = (lhsM, rhsM, inconsists, lhsCols, rhsCols)
   where
     -- convert each constraint into the form (lhs, rhs)
     consPairs       = filter (uncurry (/=)) $ flattenConstraints cons
@@ -178,7 +188,7 @@ constraintsToMatrices cons = (lhsM, rhsM, inconsists, lhsCols, rhsCols)
     rhs             = map snd shiftedCons
     (lhsM, lhsCols) = flattenedToMatrix lhs
     (rhsM, rhsCols) = flattenedToMatrix rhs
-    augM            = if rows rhsM == 0 || cols rhsM == 0 then lhsM else fromBlocks [[lhsM, rhsM]]
+    augM            = if rows rhsM == 0 || cols rhsM == 0 then lhsM else if rows lhsM == 0 || cols lhsM == 0 then rhsM else fromBlocks [[lhsM, rhsM]]
     inconsists      = findInconsistentRows lhsM augM
 
 -- [[UnitInfo]] is a list of flattened constraints
