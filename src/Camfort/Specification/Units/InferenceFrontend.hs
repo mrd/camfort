@@ -52,7 +52,7 @@ import Camfort.Specification.Units.Monad
 import Camfort.Specification.Units.InferenceBackend
 import Camfort.Specification.Units.Parser (unitParser)
 import qualified Camfort.Specification.Units.Parser.Types as P
-import Camfort.Specification.Units.InferenceBackendSBV (inferVariablesSBV, genUnitAssignmentsSBV)
+import qualified Camfort.Specification.Units.InferenceBackendSBV as BackendSBV
 
 import qualified Debug.Trace as D
 import qualified Numeric.LinearAlgebra as H -- for debugging
@@ -133,20 +133,20 @@ cleanLinks = transformBi (\ a -> a { unitPU = Nothing, unitBlock = Nothing, unit
 runCriticalVariables :: UnitSolver [UnitInfo]
 runCriticalVariables = do
   cons <- usConstraints `fmap` get
-  return $ criticalVariables cons
+  return $ BackendSBV.criticalVariables cons
 
 -- | Return a list of variable names mapped to their corresponding
 -- unit that was inferred.
 runInferVariables :: UnitSolver [(VV, UnitInfo)]
 runInferVariables = do
   cons <- usConstraints `fmap` get
-  return $ inferVariablesSBV cons
+  return $ BackendSBV.inferVariables cons
 
 -- | Return a possible list of unsolvable constraints.
 runInconsistentConstraints :: UnitSolver (Maybe Constraints)
 runInconsistentConstraints = do
   cons <- usConstraints `fmap` get
-  return $ inconsistentConstraints cons
+  return $ BackendSBV.inconsistentConstraints cons
 
 -- | Produce information for a "units-mod" file.
 runCompileUnits :: UnitSolver CompiledUnits
@@ -892,7 +892,7 @@ debugLogging = whenDebug $ do
     let unitAssignments = genUnitAssignments cons
     tell . unlines $ map (\ (u1s, u2) -> "  ***UnitAssignment: " ++ show u1s ++ " === " ++ show (flattenUnits u2) ++ "\n") unitAssignments
     tell "\n--------------------------------------------------\nGenUnitAssignmentsSBV:\n"
-    let unitAssignments = genUnitAssignmentsSBV cons
+    let unitAssignments = BackendSBV.genUnitAssignments cons
     tell . unlines $ map (\ (u1s, u2) -> "  ***UnitAssignmentSBV: " ++ show u1s ++ " === " ++ show (flattenUnits u2) ++ "\n") unitAssignments
     tell "\n--------------------------------------------------\n"
 
