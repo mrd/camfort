@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {- |
 Module      :  Camfort.Specification.Units.Analysis.Consistent
 Description :  Analysis to verify units are consistent.
@@ -16,13 +17,14 @@ module Camfort.Specification.Units.Analysis.Consistent
   , checkUnits
   ) where
 
+import           Control.Monad
 import           Control.Monad.State (get)
 import           Control.Monad.Reader (asks)
 import           Data.Data
 import           Data.Generics.Uniplate.Operations
 import           Data.List (partition, find, group, sort)
 import qualified Data.Map.Strict as M
-import           Data.Maybe (maybeToList, maybe)
+import           Data.Maybe (mapMaybe, listToMaybe, maybeToList, maybe)
 import           Data.Function (on)
 
 import           Camfort.Analysis (Describe(..))
@@ -60,7 +62,7 @@ instance Show ConsistencyError where
   show (Inconsistency pf cons) = concat [ "\n", fname, ": Inconsistent:\n", reportErrors ]
     where
       fname = F.pfGetFilename pf
-      reportErrors = unlines [ maybe "" showSS ss ++ str | (ss, str) <- reports ]
+      reportErrors = unlines [ maybe "" showSS ss ++ str | (ss, str) <- reports ] -- ++ unlines (map show callIds)
         where
           reports = map head . group . sort . map reportError . filter relevantConstraints $ cons
           showSS  = (++ ": ") . (" - at "++) . showSpanStart
@@ -107,9 +109,17 @@ instance Show ConsistencyError where
           simplify = B.dimToConstraint . B.constraintToDim
 
       findCon :: Constraint -> Maybe FU.SrcSpan
-      findCon con = lookupWith (eq con) constraints
+      findCon con = msum $ [ lookupWith (eq con) constraints] ++
+                           [ lookup id callIds | id <- extractCallIds con ]
         where -- constraintToDim normalises as it builds the Dim, so we can use dimParamEq directly.
-              eq c1 c2 = or [ B.constraintToDim c1 `B.dimParamEq` B.constraintToDim c2' | c2' <- universeBi c2 ]
+              -- eq c1 c2 = or [ B.constraintToDim c1 `B.dimParamEq` B.constraintToDim c2' | c2' <- universeBi c2 ]
+              eq c1 c2 = B.constraintToDim c1 `B.dimParamEq` B.constraintToDim c2
+      extractCallIds :: Constraint -> [Int]
+      extractCallIds con = [ i | UnitParamPosUse (_, _, i) <- universeBi con ] ++
+                           [ i | UnitParamVarUse (_, _, i) <- universeBi con ] ++
+                           [ i | UnitParamLitUse (_, i) <- universeBi con ] ++
+                           [ i | UnitParamEAPUse (_, i) <- universeBi con ]
+      callIds = concatMap (\ (c, s) -> (,s) <$> extractCallIds c) constraints
       constraints = [ (c, srcSpan)
                     | x <- universeBi pf :: [F.Expression UA]
                     , let srcSpan = FU.getSpan x

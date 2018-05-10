@@ -273,10 +273,10 @@ pprintConstr (ConConj cs)  = intercalate "\n\t and " (fmap pprintConstr cs)
 
 pprintUnitInfo :: UnitInfo -> String
 pprintUnitInfo (UnitVar (_, sName))                 = printf "%s" sName
-pprintUnitInfo (UnitParamVarUse (_, (_, sName), _)) = printf "%s" sName
-pprintUnitInfo (UnitParamPosUse ((_, fname), 0, _)) = printf "result of %s" fname
-pprintUnitInfo (UnitParamPosUse ((_, fname), i, _)) = printf "parameter %d to %s" i fname
-pprintUnitInfo (UnitParamEAPUse ((v, _), _))        = printf "explicitly annotated polymorphic unit %s" v
+pprintUnitInfo (UnitParamVarUse (_, (_, sName), j)) = printf "%s#%d" sName j
+pprintUnitInfo (UnitParamPosUse ((_, fname), 0, j)) = printf "result of %s#%d" fname j
+pprintUnitInfo (UnitParamPosUse ((_, fname), i, j)) = printf "parameter %d to %s#%d" i fname j
+pprintUnitInfo (UnitParamEAPUse ((v, _), j))        = printf "explicitly annotated polymorphic unit %s#%d" v j
 pprintUnitInfo (UnitLiteral _)                      = "literal number"
 pprintUnitInfo (UnitMul u1 u2)                      = pprintUnitInfo u1 ++ " * " ++ pprintUnitInfo u2
 pprintUnitInfo (UnitPow u k) | k `approxEq` 0       = "1"
