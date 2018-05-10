@@ -177,17 +177,20 @@ genBasisMap shiftedCons = baseRhsMap
 
 genUnitAssignments :: Constraints -> [(UnitInfo, UnitInfo)]
 genUnitAssignments cons = case engine cons of
-  Left (core, labeledCons) -> []
+  Left (core, labeledCons) -> [] -- trace (unlines $ map show labeledCons ++ ["Unsatisfiable: " ++ show core]) $ []
   Right (sub, _) -> subToList sub
 
 basicOptimisations :: Constraints -> Constraints
-basicOptimisations cons = cons'
+basicOptimisations cons = trace ("basicOptimisations " ++ show (length cons) ++ " => " ++ show (length cons')) $ cons'
   where
     cons' = filter (not . identicalSides) cons
     identicalSides (ConEq lhs rhs) = lhs == rhs
     identicalSides _               = False
 
 type EngineResult = Either ([String], [(String, AugConstraint)]) (Sub, [UnitInfo])
+
+traceConstraints name = traceConstraints' name . flattenConstraints
+traceConstraints' name cs = unlines $ map (\ (u1s,u2s) -> "  *** " ++ name ++ ": " ++ show u1s ++ " === " ++ show u2s) cs
 
 -- main working function
 engine :: Constraints -> EngineResult
@@ -205,6 +208,8 @@ engine cons = unsafePerformIO $ do
 
   let pred :: Symbolic EngineResult
       pred = do
+        setOption $ OptionKeyword ":auto-config" ["false"]
+        -- setOption $ OptionKeyword ":ignore_solver1" ["true"]
         setOption $ ProduceUnsatCores True
         -- pregenerate all of the necessary existentials
         nameSIntMap <- M.fromList <$> mapM genVar (M.keys nameUIMap)
@@ -221,6 +226,7 @@ engine cons = unsafePerformIO $ do
           case e_nvMap of
             Left core -> return $ Left (core, labeledCons) -- inconsistent
             Right nvMap -> do
+              -- traceM $ show nvMap
               -- interpret the suggested values as a list of substitutions
               assignSubs <- interpret nameUIMap nvMap
 
@@ -232,15 +238,16 @@ engine cons = unsafePerformIO $ do
 
               -- convert to Constraint format
               let polyCons = map dimToConstraint dims'
-
+              -- traceM $ traceConstraints "polyCons" polyCons
               -- feed back into old solver to figure out polymorphic equations
               let polyAssigns = MatrixBackend.genUnitAssignments polyCons
+              -- traceM $ traceConstraints' "polyAssigns" $ map (fmap flattenUnits) polyAssigns
 
               -- convert polymorphic assignments into substitution format
               let polySubs = subFromList [ (u, dimFromUnitInfo units)
                                          | ([UnitPow u@(UnitParamVarAbs _) k], units) <- polyAssigns
                                          , k `approxEq` 1 ]
-
+              -- traceM $ show polySubs
               let criticals = MatrixBackend.criticalVariables polyCons
 
               -- for now we'll suggest all underdetermined units but

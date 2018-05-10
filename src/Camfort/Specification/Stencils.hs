@@ -37,7 +37,7 @@ import qualified Language.Fortran.Analysis.Renaming as FAR
 import qualified Language.Fortran.Analysis.BBlocks as FAB
 
 import Data.List
-
+import qualified Debug.Trace as D
 
 -- | Helper for retrieving analysed blocks.
 getBlocks = FAB.analyseBBlocks . FAR.analyseRenames . FA.initAnalysis . fmap SA.mkStencilAnnotation

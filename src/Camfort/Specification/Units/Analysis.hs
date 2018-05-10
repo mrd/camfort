@@ -62,6 +62,8 @@ import           Camfort.Specification.Units.Parser (unitParser)
 import qualified Camfort.Specification.Units.Parser.Types as P
 import qualified Camfort.Specification.Units.InferenceBackendSBV as BackendSBV
 
+import qualified Debug.Trace as D
+
 -- | Prepare to run an inference function.
 initInference :: UnitSolver ()
 initInference = do
@@ -640,6 +642,17 @@ propagatePU pu = do
 
   pure (UA.setConstraint (ConConj cons) pu')
 
+-- literalAssignmentSpecialCase e1 e2 ast
+--   | isLiteral e2
+--   , Just u1 <- UA.getUnitInfo e1
+--   , Just u2 <- UA.getUnitInfo e2
+--   , (isMonomorphic u1 && isUnitless u2) || isLiteralZero e2 = do
+--     u2' <- genUnitLiteral
+--     pure $ UA.maybeSetUnitConstraintF2 ConEq (UA.getUnitInfo e1) (Just u2') ast
+--   | otherwise = do
+--     -- otherwise express the constraint between LHS and RHS of assignment.
+--     pure $ UA.maybeSetUnitConstraintF2 ConEq (UA.getUnitInfo e1) (UA.getUnitInfo e2) ast
+
 --------------------------------------------------
 
 -- | Coalesce various function and subroutine call common code.
@@ -820,9 +833,9 @@ debugLogging = do
     let (solvedM, newColIndices) = Flint.normHNF augM
     logDebugNoOrigin . describeShow $ solvedM
     logDebugNoOrigin $ "newColIndices = " <> describeShow newColIndices
-    logDebugNoOrigin "--------------------------------------------------\nLHS Cols with newColIndices:"
-    let lhsCols = A.elems lhsColA ++ map (lhsColA A.!) newColIndices
-    logDebugNoOrigin $ describe . unlines . map show $ zip [0..] lhsCols
+    logDebugNoOrigin "--------------------------------------------------\nColumns with newColIndices:"
+    let cols = A.elems lhsColA ++ A.elems rhsColA ++ map (cols !!) newColIndices
+    logDebugNoOrigin $ describe . unlines . map show $ zip [0..] cols
     -- logDebugNoOrigin "--------------------------------------------------\nSolved (SVD) M:"
     -- logDebugNoOrigin $ show (H.linearSolveSVD lhsM rhsM)
     -- logDebugNoOrigin "--------------------------------------------------\nSingular Values:"

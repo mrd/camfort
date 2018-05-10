@@ -65,6 +65,8 @@ import           Numeric.LinearAlgebra.Devel
 import Camfort.Specification.Units.Environment
 import qualified Camfort.Specification.Units.InferenceBackendFlint as Flint
 
+import qualified Debug.Trace as D
+
 -- | Returns list of formerly-undetermined variables and their units.
 inferVariables :: Constraints -> [(VV, UnitInfo)]
 inferVariables cons = unitVarAssignments
@@ -88,8 +90,8 @@ detectInconsistency unitAssignments = [ fmap foldUnits a | a@([UnitPow (UnitPara
 -- | Raw units-assignment pairs.
 genUnitAssignments :: [Constraint] -> [([UnitInfo], UnitInfo)]
 genUnitAssignments cons
-  | null (detectInconsistency ua) = ua
-  | otherwise                     = []
+  | null (detectInconsistency ua) = D.trace ("genUnitAssignments length cons = " ++ show (length cons)) $ ua
+  | otherwise = D.trace ("detectInconsistency = " ++ show (detectInconsistency ua)) []
   where
     ua = genUnitAssignments' colSort cons
 
@@ -97,7 +99,7 @@ genUnitAssignments' :: SortFn -> [Constraint] -> [([UnitInfo], UnitInfo)]
 genUnitAssignments' _ [] = []
 genUnitAssignments' sortfn cons
   | null colList                                      = []
-  | null inconsists                                   = unitAssignments
+  | null inconsists                                   = D.trace ("ranks solved = " ++ show (rank cosolvedM, rank solvedM)) unitAssignments
   | otherwise                                         = []
   where
     (lhsM, rhsM, inconsists, lhsColA, rhsColA) = constraintsToMatrices' sortfn cons
@@ -317,8 +319,10 @@ elemRowSwap n i j
 -- Worker functions:
 
 findInconsistentRows :: H.Matrix Double -> H.Matrix Double -> [Int]
-findInconsistentRows coA augA = [0..(rows augA - 1)] \\ consistent
+findInconsistentRows coA augA = result
   where
+    result = [0..(rows augA - 1)] \\ consistent
+    msg = "coA = " ++ show coA ++ "\naugA = " ++ show augA ++ "\n ranks = " ++ show (Flint.integerRank coA, Flint.integerRank augA) ++ "\nresult = " ++ show result ++ "\nconsistent = " ++ show consistent
     consistent = head (filter (tryRows coA augA) (tails ( [0..(rows augA - 1)])) ++ [[]])
 
     -- Rouché–Capelli theorem is that if the rank of the coefficient
@@ -376,3 +380,17 @@ inconsistentConstraints cons
   | otherwise       = Just [ con | (con, i) <- zip cons [0..], i `elem` inconsists ]
   where
     (_, _, inconsists, _, _) = constraintsToMatrices cons
+
+
+
+
+    -- = D.trace msg $ unitAssignments
+    -- && cols lhsM == rank cosolvedM
+--    msg = "rank solvedM = " ++ show (rank solvedM) ++ " rank cosolvedM = " ++ show (rank cosolvedM) ++ "\n" ++ show solvedM ++ "\n" ++ show cosolvedM
+-- D.trace msg $ []
+
+m1 = (4><5)
+ [ 1, 0,  0, -1,  0
+ , 0, 1,  0, -4,  0
+ , 0, 0,  6, -4,  0
+ , 0, 0,  1,  0, -2 ] :: H.Matrix Double

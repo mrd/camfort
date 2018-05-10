@@ -18,6 +18,7 @@ module Camfort.Specification.Units.ModFile
   , runCompileUnits
   ) where
 
+import qualified Debug.Trace as D
 import           Control.Monad.State (get, gets, lift)
 import           Data.Binary (Binary, decodeOrFail, encode)
 import qualified Data.ByteString.Lazy.Char8 as LB
@@ -86,7 +87,8 @@ runCompileUnits = do
 
   let variables = M.fromList [ (NPKVariable var, units) | ([UnitPow (UnitVar var) k], units) <- unitAssigns
                                                         , k `approxEq` 1 ]
-
+  -- tmap <- gets usTemplateMap
+  -- D.traceM $ "unopt tmap = \n" ++ unlines [ f ++ "\n" ++ unlines (map show cons) | (f, cons) <- M.toList tmap ]
   tmap <- M.map optimiseTemplate `fmap` gets usTemplateMap
   let npm = variables
 

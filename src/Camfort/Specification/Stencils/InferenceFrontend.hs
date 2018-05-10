@@ -66,6 +66,7 @@ import qualified Data.Map as M
 import qualified Data.Set as S
 import Data.Maybe
 import Data.Monoid ((<>))
+import qualified Debug.Trace as D
 
 data InferState = IS {
      ivMap        :: FAD.InductionVarMapByASTBlock
