@@ -12,7 +12,7 @@ license-file:           LICENSE
 stability:              experimental
 build-type:             Simple
 category:               Language
-tested-with:            GHC == 9.0, GHC == 9.2, GHC == 9.4, GHC == 9.6
+tested-with:            GHC == 9.0, GHC == 9.2, GHC == 9.4, GHC == 9.6, GHC == 9.8
 github:                 camfort/camfort
 
 extra-source-files:
@@ -135,7 +135,7 @@ library:
     - Language.Fortran.Model.Util
 
   dependencies:
-    - ghc-prim >= 0.3.1.0 && < 0.11
+    - ghc-prim >= 0.3.1.0 && < 0.12
     - syz >= 0.2 && < 0.3
     - syb >= 0.4 && < 0.8
     - matrix >= 0.2.2 && < 0.4
@@ -148,13 +148,13 @@ library:
     - singletons      >= 3.0 && < 3.1
 
     # 3.0 = GHC 9.0, 3.1 = GHC 9.2, 3.1.1 = GHC 9.4, 3.2 = GHC 9.6
-    - singletons-th   >= 3.0 && < 3.3
-    - singletons-base >= 3.0 && < 3.3
+    - singletons-th   >= 3.0 && < 3.6
+    - singletons-base >= 3.0 && < 3.6
 
     - template-haskell >= 2.11 && < 3
     - vinyl >= 0.9 && < 1.0
     - strict >= 0.3.2 && < 1
-    - deepseq >= 1.4 && < 1.5
+    - deepseq >= 1.4 && < 1.6
     - pipes >= 4.3 && < 4.4
     - parallel >= 3.2 && < 3.3
 
