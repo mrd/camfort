@@ -69,6 +69,7 @@ import           Camfort.Specification.Stencils.Syntax
   , setLinearity
   , Specification(..)
   , Variable)
+import           Language.Fortran.Repr
 
 type Indices a = [[F.Index (FA.Analysis a)]]
 
@@ -285,7 +286,7 @@ genRHSsubscripts block = genRHSsubscripts' (transformBi replaceModulo block)
         | iname `elem` ["modulo", "mod", "amod", "dmod"]
         -- We expect that the first parameter to modulo is being treated
         -- as an IxSingle element
-        , Just (F.Argument _ _ _ e':_) <- fmap F.aStrip subs = e'
+        , arg@F.Argument{} : _ <- F.aStrip subs = F.argExprNormalize (F.argumentExpr arg)
     replaceModulo e = e
 
     genRHSsubscripts' b =
@@ -311,7 +312,8 @@ expToNeighbour ivs (F.ExpBinary _ _ F.Addition
                     e1@(F.ExpValue _ _ (F.ValVariable _))
                     e2)
     | FA.varName e1 `elem` ivs
-    , Just (FAD.ConstInt offs) <- FA.constExp (F.getAnnotation e2) = Neighbour (FA.varName e1) (fromIntegral offs)
+    , Just offs <- FA.constExp (F.getAnnotation e2) >>= fromConstInt
+    = Neighbour (FA.varName e1) (fromIntegral offs)
 
 expToNeighbour ivs (F.ExpBinary _ _ F.Addition
                  e@(F.ExpValue _ _ (F.ValVariable _))
@@ -323,7 +325,8 @@ expToNeighbour ivs (F.ExpBinary _ _ F.Addition
                     e1@(F.ExpValue _ _ (F.ValVariable _))
                     e2)
     | FA.varName e1 `elem` ivs
-    , Just (FAD.ConstInt offs) <- FA.constExp (F.getAnnotation e2) = Neighbour (FA.varName e1) (fromIntegral offs)
+    , Just offs <- FA.constExp (F.getAnnotation e2) >>= fromConstInt
+    = Neighbour (FA.varName e1) (fromIntegral offs)
 
 expToNeighbour ivs (F.ExpBinary _ _ F.Addition
                   (F.ExpValue _ _ (F.ValInteger offs _))
@@ -335,7 +338,7 @@ expToNeighbour ivs (F.ExpBinary _ _ F.Subtraction
                     e1@(F.ExpValue _ _ (F.ValVariable _))
                     e2)
    | FA.varName e1 `elem` ivs
-   , Just (FAD.ConstInt offs) <- FA.constExp (F.getAnnotation e2)
+   , Just offs <- FA.constExp (F.getAnnotation e2) >>= fromConstInt
    , offs' <- if offs < 0 then abs offs else (- offs) = Neighbour (FA.varName e1) (fromIntegral offs')
 
 expToNeighbour ivs (F.ExpBinary _ _ F.Subtraction

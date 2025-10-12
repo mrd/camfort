@@ -1,0 +1,324 @@
+name: assorted
+
+on:
+  push:
+    branches:
+    - master
+  pull_request:
+    types:
+    - opened
+    - synchronize
+
+env:
+  exe: camfort
+
+jobs:
+# ubuntu-stack-test:
+#   # need a recent version of z3 (probably >=4.5); Ubuntu 20.04 is OK
+#   runs-on: ubuntu-latest
+#   name: Ubuntu / Stack / test
+#   steps:
+#
+#   - uses: actions/checkout@v2
+#
+#   # relative paths are relative to the project directory
+#   - name: Cache Stack build artifacts (user + project)
+#     uses: actions/cache@v4
+#     with:
+#       path: |
+#         ~/.stack
+#         .stack-work
+#       # best effort for cache: tie it to Stack resolver and package config
+#       key: ${{ runner.os }}-stack-${{ hashFiles('stack.yaml.lock', 'package.yaml') }}
+#       restore-keys: |
+#         ${{ runner.os }}-stack
+#
+#   # note that we require static libs (in Ubuntu, *-dev)
+#   - name: Install required libraries
+#     run: >-
+#       sudo apt install
+#       libopenblas-dev
+#       liblapack-dev
+#       libflint-dev
+#       z3
+#
+#   - name: Install project dependencies
+#     run: stack --no-terminal test --only-dependencies
+#
+#   - name: Build and run tests
+#     run: stack --no-terminal haddock --test --no-haddock-deps
+#
+#   - name: Install (to place executable at a known location)
+#     run: stack --no-terminal install
+#
+#   - name: Upload executable
+#     uses: actions/upload-artifact@v4
+#     with:
+#       path: ~/.local/bin/${{ env.exe }}
+#       name: ${{ env.exe }}-ubuntu-stack-${{ github.sha }}
+#       if-no-files-found: error
+#
+# ubuntu-cabal-test:
+#   runs-on: ubuntu-latest
+#   name: Ubuntu / GHC ${{ matrix.ghc }}, Cabal / test
+#   strategy:
+#     fail-fast: false  # don't stop if one job (= GHC version) fails
+#     matrix:
+#       cabal: ["3.6.2.0"]  # ghcup recommended as of 2022-10-12
+#       ghc:
+#       - "9.0.2"
+#       - "9.2.4"
+#       - "9.4.2"
+#
+#   steps:
+#
+#   # TODO: GHC decides to recompile based on timestamp, so cache isn't used
+#   # Preferably GHC would work via hashes instead. Stack had this feature
+#   # merged in Aug 2020.
+#   # Upstream GHC issue: https://gitlab.haskell.org/ghc/ghc/-/issues/16495
+#   # My issue on haskell/actions: https://github.com/haskell/actions/issues/41
+#   # This also requires us to do a deep fetch, else we don't get the Git commit
+#   # history we need to rewrite mod times.
+#   - uses: actions/checkout@v2
+#     with:
+#       fetch-depth: 0
+#   - name: Set all tracked file modification times to the time of their last commit
+#     run: |
+#       rev=HEAD
+#       IFS=$'\n'
+#       for f in $(git ls-tree -r -t --full-name --name-only "$rev") ; do
+#           touch -d $(git log --pretty=format:%cI -1 "$rev" -- "$f") "$f";
+#       done
+#
+#   - name: Setup Haskell build environment
+#     id: setup-haskell-build-env
+#     uses: haskell-actions/setup@v2
+#     with:
+#       ghc-version: ${{ matrix.ghc }}
+#       cabal-version: ${{ matrix.cabal }}
+#
+#   # note that we require static libs (in Ubuntu, *-dev)
+#   - name: Install required libraries
+#     run: >-
+#       sudo apt install
+#       libopenblas-dev
+#       liblapack-dev
+#       libflint-dev
+#       z3
+#
+#   - run: cabal freeze
+#
+#   - name: Cache Cabal build artifacts
+#     uses: actions/cache@v4
+#     with:
+#       path: |
+#         ${{ steps.setup-haskell-build-env.outputs.cabal-store }}
+#         dist-newstyle
+#       key: ${{ runner.os }}-cabal-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
+#       restore-keys: |
+#         ${{ runner.os }}-cabal-${{ matrix.ghc }}
+#
+#   - name: Test
+#     run: cabal test --test-show-details=streaming
+#     env:
+#       HSPEC_OPTIONS: --color
+
+  mac-cabal-test:
+    runs-on: macos-latest
+    name: Mac / GHC ${{ matrix.ghc }}, Cabal / test
+    strategy:
+      fail-fast: false  # don't stop if one job (= GHC version) fails
+      matrix:
+        cabal: ["3.10.1.0"]
+        ghc: ["9.2.8"]
+
+    steps:
+
+    # TODO figure out timestamp fixer on Mac (no Mac available to test)
+    - uses: actions/checkout@v2
+
+    - name: Setup Haskell build environment
+      id: setup-haskell-build-env
+      uses: haskell-actions/setup@v2
+      with:
+        ghc-version: ${{ matrix.ghc }}
+        cabal-version: ${{ matrix.cabal }}
+
+    - name: Install required libraries
+      run: >-
+        brew install
+        openblas
+        lapack
+        flint
+        z3
+
+    - run: cabal freeze
+
+    - name: Cache Cabal build artifacts
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ steps.setup-haskell-build-env.outputs.cabal-store }}
+          dist-newstyle
+        key: ${{ runner.os }}-cabal-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
+        restore-keys: |
+          ${{ runner.os }}-cabal-${{ matrix.ghc }}
+
+    - name: Detect architecture
+      id: arch
+      run: echo "arch=$(uname -m)" >> $GITHUB_OUTPUT
+
+    - name: Build
+      run: cabal install --extra-lib-dirs=$(brew --prefix flint)/lib --extra-include-dirs=$(brew --prefix flint)/include
+
+    - name: Test
+      run: cabal test --test-show-details=streaming --extra-lib-dirs=$(brew --prefix flint)/lib --extra-include-dirs=$(brew --prefix flint)/include
+      env:
+        HSPEC_OPTIONS: --color
+
+    # note that Cabal uses symlinks -- actions/upload-artifact@v4 apparently
+    # dereferences for us
+    - name: Upload executable
+      uses: actions/upload-artifact@v4
+      with:
+        path: ~/.cabal/bin/${{ env.exe }}
+        name: ${{ env.exe }}-macos-ghc-${{ matrix.ghc }}-cabal-${{ github.sha }}
+        if-no-files-found: error
+
+# windows-cabal-test:
+#   runs-on: ${{ matrix.os }}
+#   name: ${{ matrix.os }} (MSYS2, ${{ matrix.msystem }})) / build / GHC ${{ matrix.ghc }}, Cabal
+#   strategy:
+#     fail-fast: false
+#     matrix:
+#       os: [windows-latest]
+#       cabal: [latest]
+#       ghc:
+#       - 9.2.4
+#       msystem: [MINGW64]
+#       include:
+#       - ghc: 9.2.4
+#         build: release
+#
+#   steps:
+#
+#   - uses: actions/checkout@v2
+#
+#   - uses: msys2/setup-msys2@v2
+#     with:
+#       msystem: ${{ matrix.msystem }}
+#       pacboy: >-
+#         openblas:p
+#         lapack:p
+#         flint:p
+#         z3:p
+#       location: D:\
+#
+#   - name: Find Flint libraries
+#     shell: msys2 {0}
+#     run: |
+#       pacman -Ql mingw-w64-x86_64-flint
+#       # Or search for the actual files
+#       find /mingw64 -name "*flint*" -o -name "libflint*"
+#       ls -la /mingw64/include/*flint* || echo "No headers found"
+#       ls -la /mingw64/lib/*flint* || echo "No libraries found"
+#       pkg-config --cflags --libs flint || echo "pkg-config not available"
+#
+#   - name: Add MSYS2 library paths to environment
+#     shell: msys2 {0}
+#     run: |
+#       export PATH="/mingw64/bin:$PATH"
+#       export LIBRARY_PATH="/mingw64/lib:$LIBRARY_PATH"
+#
+#   # TODO 2022-10-12 has a new command, not tried
+#   - name: Install ghcup
+#     run: 'Set-ExecutionPolicy Bypass -Scope Process -Force;[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072;Invoke-Command -ScriptBlock ([ScriptBlock]::Create((Invoke-WebRequest https://www.haskell.org/ghcup/sh/bootstrap-haskell.ps1 -UseBasicParsing))) -ArgumentList $false,$true,$true,$false,$false,$false,$false,"C:\","https://gitlab.haskell.org/haskell/ghcup-hs/-/raw/v0.1.17.5/scripts/bootstrap/bootstrap-haskell","D:\msys64","C:\cabal"'
+#
+#   # TODO idk why this doesn't work
+#   - run: echo "source /c/ghcup/env" >> ~/.bashrc
+#     shell: msys2 {0}
+#
+#   - run: >-
+#       sed --in-place
+#       's/extra-lib-dirs: /extra-lib-dirs: C:\\ghcup\\ghc\\${{ matrix.ghc }}\\x86_64-w64-mingw32\\lib, /g'
+#       /c/cabal/config
+#     shell: msys2 {0}
+#
+#   - run: ghcup install cabal ${{ matrix.cabal }} --set
+#   - run: ghcup install ghc ${{ matrix.ghc }} --set
+#
+#   - name: Cache global Cabal store
+#     uses: actions/cache@v4
+#     with:
+#       path: C:/cabal/store
+#       key: build-cabal-global-store-${{ runner.os }}-ghc_${{ matrix.ghc }}
+#
+#   - run: cabal update
+#
+#   - run: cabal freeze
+#     shell: msys2 {0}
+#     env:
+#       BASH_ENV: /c/ghcup/env
+#
+#   - name: Add MSYS2 mingw64/bin to Windows PATH
+#     run: echo "D:\\msys64\\mingw64\\bin" | Out-File -Append -FilePath $env:GITHUB_PATH
+#
+#   - name: (camfort) Cache project Cabal store
+#     uses: actions/cache@v4
+#     with:
+#       path: dist-newstyle
+#       key:          build-cabal-project-camfort-${{ runner.os }}-ghc_${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
+#       restore-keys: build-cabal-project-camfort-${{ runner.os }}-ghc_${{ matrix.ghc }}
+#
+#   - name: (camfort) Build (exe)
+#     if: "matrix.build == 'release'"
+#     run: |
+#       export PATH="/mingw64/bin:$PATH"
+#       cabal build -O2 --extra-lib-dirs=/mingw64/lib --extra-include-dirs=/mingw64/include
+#     shell: msys2 {0}
+#     env:
+#       BASH_ENV: /c/ghcup/env
+#   - name: (camfort) Build (skip exe)
+#     if: "matrix.build != 'release'"
+#     run: |
+#       export PATH="/mingw64/bin:$PATH"
+#       cabal build -O0 --extra-lib-dirs=/mingw64/lib --extra-include-dirs=/mingw64/include
+#     shell: msys2 {0}
+#     env:
+#       BASH_ENV: /c/ghcup/env
+#
+#   - name: (camfort) Install
+#     if: "matrix.build == 'release'"
+#     run: cabal install
+#     shell: msys2 {0}
+#     env:
+#       BASH_ENV: /c/ghcup/env
+#
+#   # note that Cabal uses symlinks -- actions/upload-artifact@v4 apparently
+#   # dereferences for us
+#   - name: (camfort) Upload executable
+#     if: "matrix.build == 'release'"
+#     uses: actions/upload-artifact@v4
+#     with:
+#       path: C:/cabal/bin/camfort.exe
+#       name: camfort-${{ runner.os }}-ghc_${{ matrix.ghc }}-cabal-${{ github.sha }}.exe
+#       if-no-files-found: error
+#
+#   # We copy the built executable plus its runtime dependencies into a
+#   # directory. For dynamically linked libraries, we inspect the file and copy
+#   # only the libraries managed by MSYS2. The rest are assumed to be Windows
+#   # system libraries that all users should have.
+#   - name: (camfort) Prepare self-contained bundle
+#     shell: msys2 {0}
+#     run: |
+#       mkdir bundle
+#       cp C:/cabal/bin/"${{ env.exe }}".exe bundle
+#       ldd bundle/"${{ env.exe }}".exe | cut --delimiter=' ' --fields=3 - | grep '^'$MINGW_PREFIX/bin/lib.*'\'.dll | xargs -I '{}' cp '{}' bundle
+#       mv bundle "${{ env.exe }}-bundle-windows-msys2-${{ matrix.msystem }}-ghc-${{ matrix.ghc }}-cabal-${{ github.sha }}"
+#
+#   - name: Upload self-contained bundle
+#     uses: actions/upload-artifact@v4
+#     with:
+#       path: "${{ env.exe }}-bundle-windows-msys2-${{ matrix.msystem }}-ghc-${{ matrix.ghc }}-cabal-${{ github.sha }}"
+#       name: "${{ env.exe }}-bundle-windows-msys2-${{ matrix.msystem }}-ghc-${{ matrix.ghc }}-cabal-${{ github.sha }}"
+#       if-no-files-found: error

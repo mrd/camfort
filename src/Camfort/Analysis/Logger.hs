@@ -77,6 +77,8 @@ module Camfort.Analysis.Logger
   , logOutputStd
   , logOutputNone
   , runLoggerT
+  , formatError
+  , formatSuccess
   ) where
 
 import qualified Data.Semigroup                 as SG
@@ -131,6 +133,7 @@ class Describe a where
   describeBuilder = Builder.fromString . show
 
 instance Describe F.SrcSpan
+instance Describe F.Position
 instance Describe Text where
   describeBuilder = Builder.fromText
 instance Describe [Char] where
@@ -175,8 +178,14 @@ instance NFData Origin
 
 instance Describe Origin where
   describeBuilder origin =
+    -- Present the file and span in a standard format for
+    -- editor integration (link to source)
     "at [" <> Builder.fromString (origin ^. oFile) <>
-    ", " <> describeBuilder (origin ^. oSpan) <> "]"
+    ":" <> describeBuilder startSpan <>
+    " - " <> describeBuilder endSpan <> "]"
+    where
+      startSpan = F.ssFrom (origin ^. oSpan)
+      endSpan   = F.ssFrom (origin ^. oSpan)
 
 data ParsedOrigin = ParsedOrigin FilePath (Int, Int) (Int, Int)
   deriving (Show, Eq, Ord)
@@ -593,3 +602,34 @@ logSomeMessage msg = do
   logLevel <- LoggerT $ use lsLogLevel
 
   lift $ logFunc repeatedOrigin logLevel msgLevel originText msgText
+
+formatError :: String -> String
+formatError msg = bold (red msg)
+
+formatSuccess :: String -> String
+formatSuccess msg = bold (green msg)
+
+bold :: String -> String
+bold = txtColor "1"
+
+-- black, red, green, yellow, blue, magenta, cyan, white :: String -> String
+red, green :: String -> String
+red = txtColor "31"
+green = txtColor "32"
+
+-- Not used currently but left here as a comment in case useful later
+
+-- black = txtColor "30"
+-- yellow = txtColor "33"
+-- blue = txtColor "34"
+-- magenta = txtColor "35"
+-- cyan = txtColor "36"
+-- white = txtColor "37"
+
+txtColor :: String -> String -> String
+txtColor colorCode message =
+    -- if noColors
+    --  then message
+    "\ESC[" <> colorCode <> ";1m" <> message <> reset
+  where
+    reset = "\ESC[0m"

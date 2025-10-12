@@ -27,6 +27,7 @@ module Camfort.Specification.Hoare.CheckBackend
 import           Control.Exception                      (Exception (..))
 import           Control.Lens
 import           Control.Monad.Reader
+import           Control.Monad                          (forM, forM_, unless, void, when, zipWithM_, msum)
 import           Control.Monad.State.Strict
 import           Control.Monad.Writer.Lazy
 import           Control.Monad.Trans.Maybe
@@ -40,14 +41,18 @@ import           Data.Maybe                             (isJust, maybeToList)
 import           Data.Void                              (Void)
 
 import           Data.SBV                               (SBool)
+import           Data.Text.Lazy.Builder                 (fromText)
+import           Data.Text                              (pack)
 
 import qualified Language.Fortran.Analysis              as F
 import qualified Language.Fortran.AST                   as F
 import qualified Language.Fortran.LValue                as F
 import qualified Language.Fortran.Util.Position         as F
 
+import qualified Data.List.NonEmpty                     as NE
+
 import           Camfort.Analysis
-import           Camfort.Analysis.Logger                (Builder, Text)
+import           Camfort.Analysis.Logger                (Builder, Text, formatError, formatSuccess)
 import           Camfort.Helpers.TypeLevel
 import           Camfort.Specification.Hoare.Annotation
 import           Camfort.Specification.Hoare.Syntax
@@ -175,7 +180,8 @@ describePuName F.NamelessMain      = "<nameless main>"
 instance Describe HoareCheckResult where
   describeBuilder (HoareCheckResult pu result) =
     "Program unit '" <> describePuName (F.puSrcName pu) <> "': " <>
-    (if result then "verified!" else "unverifiable!")
+    (fromText $ pack $
+      if result then formatSuccess "verified!" else formatError "unverifiable!")
 
 type ScopeVars = Map UniqueName SomeVar
 
@@ -530,9 +536,15 @@ genBody = genBody' []
 genBlock :: FortranTriplet (F.Block HA) -> GenM ()
 genBlock (precond, postcond, bl) = do
   case bl of
-    F.BlIf _ _ _ _ conds bodies _ -> do
-      condsExprs <- traverse (traverse tryTranslateBoolExpr) conds
-      multiIfVCs genBody expr (precond, postcond, (zip condsExprs bodies))
+    F.BlIf _ _ _ _ clauses mElseBlock _ -> do
+      clauses' <- flip traverse clauses $ \(cond, block) ->
+          tryTranslateBoolExpr cond >>= \cond' -> pure (Just cond', block)
+      let clauses'' = case mElseBlock of
+                        Nothing ->
+                          NE.toList clauses'
+                        Just elseBlock ->
+                          NE.toList clauses' ++ [(Nothing, elseBlock)]
+      multiIfVCs genBody expr (precond, postcond, clauses'')
 
     F.BlDoWhile _ _ _ _ _ cond body _ -> do
       primInvariant <-

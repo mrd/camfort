@@ -45,10 +45,11 @@ import qualified Language.Fortran.Analysis          as FA
 import qualified Language.Fortran.Analysis.Renaming as FAR
 import qualified Language.Fortran.Analysis.Types    as FAT
 import qualified Language.Fortran.AST               as F
-import qualified Language.Fortran.Parser.Any        as FP
+import qualified Language.Fortran.Parser            as FP
 import qualified Language.Fortran.Util.ModFile      as FM
 import           Language.Fortran.Util.Files        (flexReadFile)
-import           Language.Fortran.ParserMonad       (FortranVersion(..))
+import           Language.Fortran.Version           (FortranVersion(..)
+                                                    ,deduceFortranVersion)
 
 import           Camfort.Analysis.Annotations       (A, unitAnnotation)
 import           Camfort.Helpers
@@ -221,12 +222,12 @@ readParseSrcFile :: Maybe FortranVersion -> FM.ModFiles -> Filename -> IO (Maybe
 readParseSrcFile mv mods f = do
   -- get file as ByteString, replacing non UTF-8 with space
   inp <- flexReadFile f
-  let result = case mv of
-        Nothing -> FP.fortranParserWithModFiles mods inp f
-        Just v  -> FP.fortranParserWithModFilesAndVersion v mods inp f
-  case result of
+  case FP.byVerWithMods mods v f inp of
     Right ast -> pure $ Just (fmap (const unitAnnotation) ast, inp)
     Left  err -> print err >> pure Nothing
+  where
+    v = case mv of Just v' -> v'
+                   Nothing -> deduceFortranVersion f
 
 getFortranFiles :: FileOrDir -> IO [String]
 getFortranFiles dir =
@@ -254,7 +255,7 @@ withCombinedModuleMap mfs pf =
     -- Use the module map derived from all of the included Camfort Mod files.
     mmap = FM.combinedModuleMap mfs
     pfRenamed = FAR.analyseRenamesWithModuleMap mmap $ pf
-  in (pfRenamed, mmap `Map.union` FM.extractModuleMap pfRenamed)
+  in (pfRenamed, FM.localisedModuleMap $ mmap `Map.union` FM.extractModuleMap pfRenamed)
 
 -- | Normalize the 'ProgramFile' to include environment information from
 -- the 'ModFiles'. Also return the module map and type environment.
@@ -264,7 +265,7 @@ withCombinedEnvironment
 withCombinedEnvironment mfs pf =
   let (pfRenamed, mmap) = withCombinedModuleMap mfs (FA.initAnalysis pf)
       moduleTEnv        = FM.combinedTypeEnv mfs
-      (pf', tenv)       = FAT.analyseTypesWithEnv moduleTEnv $ pfRenamed
+      (pf', tenv)       = FAT.analyseTypesWithEnv (FAT.stripExtended moduleTEnv) $ pfRenamed
   in (pf', mmap, tenv)
 
 -- | From a module map, look up the unique name associated with a given source

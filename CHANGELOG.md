@@ -1,7 +1,14 @@
-## Unreleased
+## 1.3.0 (WIP)
+ * Fixed various bugs with cross-module behaviour for units-of-measure features
+ * All reports from camfort now produce location information in the form `filename:line:col` for better IDE integration.
+ * Updated to work with latest fortran-src
+
+## 1.2.0 (Oct 12, 2022)
 
 * Improve CLI help behaviour
-* Update to fortran-src 0.8.0
+* Update to fortran-src 0.11.0
+* Support GHC 9.0, 9.2, 9.4
+* Dropped support for GHC 8.10 and older
 
 ## 1.1.2 (Oct 09, 2021)
 
